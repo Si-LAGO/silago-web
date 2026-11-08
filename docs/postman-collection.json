@@ -94,7 +94,7 @@
               "mode": "raw",
               "raw": "{\n  \"login\": \"budi@polines.ac.id\",\n  \"password\": \"password123\",\n  \"fcm_token\": \"optional-fcm-token\"\n}"
             },
-            "description": "login = email|nim|username (auto-filled). Rate 5/min per IP. 200 {token, user}. Test script auto-set {{token}}."
+            "description": "login = email|nim (auto-filled). Rate 5/min per IP. 200 {token, user}. Test script auto-set {{token}}."
           }
         },
         {

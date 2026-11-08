@@ -46,12 +46,10 @@
                                         <span class="font-medium text-ink">{{ $user->name }}</span>
                                         @if($user->role === 'admin')
                                             <span class="rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-purple-700">Admin</span>
-                                        @elseif($user->role === 'moderator')
-                                            <span class="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-blue-700">Moderator</span>
                                         @endif
                                     </div>
-                                    @if($user->username || $user->nim)
-                                        <div class="text-xs text-muted">{{ $user->username ? '@'.$user->username : $user->nim }}</div>
+                                    @if($user->nim)
+                                        <div class="text-xs text-muted">{{ $user->nim }}</div>
                                     @endif
                                 </div>
                             </div>

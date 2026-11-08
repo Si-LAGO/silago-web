@@ -22,7 +22,6 @@ class DummyDataSeeder extends Seeder
         for ($i = 1; $i <= 5; $i++) {
             $sellers[] = User::create([
                 'name' => "Penjual $i",
-                'username' => "seller$i",
                 'nim' => '12345' . $i,
                 'email' => "seller$i@polines.ac.id",
                 'password' => bcrypt('password'),
@@ -37,7 +36,6 @@ class DummyDataSeeder extends Seeder
         for ($i = 1; $i <= 5; $i++) {
             $buyers[] = User::create([
                 'name' => "Pembeli $i",
-                'username' => "buyer$i",
                 'nim' => '54321' . $i,
                 'email' => "buyer$i@polines.ac.id",
                 'password' => bcrypt('password'),

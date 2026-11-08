@@ -53,9 +53,9 @@ class DataManagerController extends Controller
             'model'      => User::class,
             'label'      => 'Pengguna',
             'icon'       => '👥',
-            'columns'    => ['id', 'name', 'email', 'nim', 'username', 'role', 'status', 'created_at'],
-            'searchable' => ['name', 'email', 'nim', 'username'],
-            'editable'   => ['name', 'username', 'nim', 'email', 'phone', 'role', 'status', 'password', 'profile_photo', 'suspend_reason'],
+            'columns'    => ['id', 'name', 'email', 'nim', 'role', 'status', 'created_at'],
+            'searchable' => ['name', 'email', 'nim'],
+            'editable'   => ['name', 'nim', 'email', 'phone', 'role', 'status', 'password', 'profile_photo', 'suspend_reason'],
             'image_fields' => [
                 'profile_photo' => 'profile-photos',
             ],
@@ -63,10 +63,9 @@ class DataManagerController extends Controller
                 'name'           => 'required|string|max:100',
                 'email'          => 'required|email|unique:users,email',
                 'nim'            => 'nullable|string|max:20|unique:users,nim',
-                'username'       => 'nullable|string|max:50|unique:users,username',
                 'password'       => 'required|string|min:8',
                 'phone'          => 'nullable|string|max:30',
-                'role'           => 'required|in:user,moderator,admin',
+                'role'           => 'required|in:user,admin',
                 'status'         => 'required|in:active,monitored,suspended',
                 'profile_photo'  => 'nullable',
                 'suspend_reason' => 'nullable|string|max:255',
@@ -75,10 +74,9 @@ class DataManagerController extends Controller
                 'name'           => 'required|string|max:100',
                 'email'          => 'required|email',
                 'nim'            => 'nullable|string|max:20',
-                'username'       => 'nullable|string|max:50',
                 'password'       => 'nullable|string|min:8',
                 'phone'          => 'nullable|string|max:30',
-                'role'           => 'required|in:user,moderator,admin',
+                'role'           => 'required|in:user,admin',
                 'status'         => 'required|in:active,monitored,suspended',
                 'profile_photo'  => 'nullable',
                 'suspend_reason' => 'nullable|string|max:255',
@@ -679,7 +677,6 @@ class DataManagerController extends Controller
         if ($table === 'users') {
             $rules['email']    = "required|email|unique:users,email,{$id}";
             $rules['nim']      = "nullable|string|max:20|unique:users,nim,{$id}";
-            $rules['username'] = "nullable|string|max:50|unique:users,username,{$id}";
         }
         if ($table === 'categories') {
             $rules['slug'] = "required|string|max:100|unique:categories,slug,{$id}";
@@ -891,7 +888,6 @@ class DataManagerController extends Controller
             'name'                => 'Nama',
             'email'               => 'Email',
             'nim'                 => 'NIM',
-            'username'            => 'Username',
             'password'            => 'Kata Sandi',
             'phone'               => 'Nomor Telepon',
             'role'                => 'Peran Pengguna',

@@ -77,6 +77,7 @@ Route::prefix('admin')->name('admin.')->group(function() {
         Route::get('/settings', [SettingController::class, 'index'])->name('settings.index');
         Route::post('/settings', [SettingController::class, 'update'])->name('settings.update');
         Route::put('/settings', [SettingController::class, 'update']);
+        Route::post('/settings/account', [SettingController::class, 'updateAccount'])->name('settings.account');
 
         // Redirect URL lama data-manager langsung ke halaman barang.
         Route::any('/data-manager{any}', [DataManagerController::class, 'legacyRedirect'])

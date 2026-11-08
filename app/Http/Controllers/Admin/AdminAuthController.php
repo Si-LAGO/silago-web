@@ -26,12 +26,10 @@ class AdminAuthController extends Controller
 
         $login = $request->input('login');
         
-        $user = User::where('email', $login)
-            ->orWhere('username', $login)
-            ->first();
+        $user = User::where('email', $login)->first();
 
         if ($user && Hash::check($request->input('password'), $user->password)) {
-            if (in_array($user->role, ['moderator', 'admin']) && $user->status === 'active') {
+            if ($user->role === 'admin' && $user->status === 'active') {
                 Auth::login($user);
                 $request->session()->regenerate();
                 

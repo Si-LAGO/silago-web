@@ -34,8 +34,7 @@ class UserController extends Controller
                 $q->where(function ($q) use ($searchLower) {
                     $q->whereRaw('LOWER(name) LIKE ?', ["%{$searchLower}%"])
                       ->orWhere('email', 'like', "%{$searchLower}%")
-                      ->orWhere('nim', 'like', "%{$searchLower}%")
-                      ->orWhere('username', 'like', "%{$searchLower}%");
+                      ->orWhere('nim', 'like', "%{$searchLower}%");
                 });
             })
             ->latest()
@@ -76,10 +75,9 @@ class UserController extends Controller
             'name'           => 'required|string|max:100',
             'email'          => 'required|email|unique:users,email',
             'nim'            => 'nullable|string|max:20|unique:users,nim',
-            'username'       => 'nullable|string|max:50|unique:users,username',
             'password'       => 'required|string|min:8',
             'phone'          => 'nullable|string|max:30',
-            'role'           => 'required|in:user,moderator,admin',
+            'role'           => 'required|in:user,admin',
             'status'         => 'required|in:active,monitored,suspended',
             'profile_photo'  => 'nullable|image|max:5120',
             'suspend_reason' => 'nullable|string|max:255',
@@ -128,10 +126,9 @@ class UserController extends Controller
             'name'           => 'required|string|max:100',
             'email'          => "required|email|unique:users,email,{$user->id}",
             'nim'            => "nullable|string|max:20|unique:users,nim,{$user->id}",
-            'username'       => "nullable|string|max:50|unique:users,username,{$user->id}",
             'password'       => 'nullable|string|min:8',
             'phone'          => 'nullable|string|max:30',
-            'role'           => 'required|in:user,moderator,admin',
+            'role'           => 'required|in:user,admin',
             'status'         => 'required|in:active,monitored,suspended',
             'profile_photo'  => 'nullable|image|max:5120',
             'suspend_reason' => 'nullable|string|max:255',

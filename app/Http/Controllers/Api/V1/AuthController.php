@@ -112,9 +112,6 @@ class AuthController extends Controller
             $attempt = Auth::attempt(['email' => $loginInput, 'password' => $request->password]);
         } else {
             $attempt = Auth::attempt(['nim' => $loginInput, 'password' => $request->password]);
-            if (!$attempt) {
-                $attempt = Auth::attempt(['username' => $loginInput, 'password' => $request->password]);
-            }
         }
 
         if (!$attempt) {

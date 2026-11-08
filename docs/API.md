@@ -58,14 +58,14 @@ POST /auth/register {name, nim, email, password, password_confirmation}
   → 201 + UserResource + email_verify_{email} cache 15 menit (6 digit, Log::info)
 POST /auth/verify-email {email, code}
   → 200 + email_verified_at = now()
-POST /auth/login {login|email|nim|username, password, ?fcm_token}
+POST /auth/login {login|email|nim, password, ?fcm_token}
   → 200 + {token, user}   // token = createToken('silago_api')->plainTextToken
 Header: Authorization: Bearer <token>
 POST /auth/logout → delete currentAccessToken()
 ```
 
-- `login` field auto-filled dari `email`/`nim`/`username` di `LoginRequest::prepareForValidation`.
-- Login coba `email` dulu (FILTER_VALIDATE_EMAIL), fallback `nim` → `username`.
+- `login` field auto-filled dari `email`/`nim` di `LoginRequest::prepareForValidation`.
+- Login coba `email` dulu (FILTER_VALIDATE_EMAIL), fallback `nim`.
 - Email domain whitelist: `settings.allowed_email_domains` (newline-separated, `str_ends_with` case-insensitive).
 - `fcm_token` disimpan ke `users.fcm_token` saat login atau via `POST /me/fcm-token`.
 
@@ -145,7 +145,7 @@ Body `email`. Rate limit 1/60s (RateLimiter `resend_verification_{email}`).
 → 200 `{message}` · 400 sudah terverifikasi · 429
 
 #### POST /auth/login
-Body `login|email|nim|username` + `password` + `?fcm_token`. Rate limit `login:{ip}` 5/min.
+Body `login|email|nim` + `password` + `?fcm_token`. Rate limit `login:{ip}` 5/min.
 → 200 `{token, user}` · 401 kredensial salah / suspended · 429
 
 #### POST /auth/logout

@@ -28,7 +28,6 @@ class OfferNegotiationTest extends TestCase
 
         $seller = User::create([
             'name' => 'Seller Offer',
-            'username' => 'seller_offer_'.$suffix,
             'nim' => 'SO'.$suffix,
             'email' => 'seller_offer_'.$suffix.'@example.com',
             'password' => 'password',
@@ -38,7 +37,6 @@ class OfferNegotiationTest extends TestCase
 
         $buyer = User::create([
             'name' => 'Buyer Offer',
-            'username' => 'buyer_offer_'.$suffix,
             'nim' => 'BO'.$suffix,
             'email' => 'buyer_offer_'.$suffix.'@example.com',
             'password' => 'password',

@@ -172,7 +172,6 @@ class ProfileReviewTest extends TestCase
 
         $seller = User::create([
             'name' => 'Seller Profile Test',
-            'username' => 'seller_profile_'.$suffix,
             'nim' => 'SP'.$suffix,
             'email' => 'seller_profile_'.$suffix.'@example.com',
             'password' => 'password',
@@ -182,7 +181,6 @@ class ProfileReviewTest extends TestCase
 
         $buyer = User::create([
             'name' => 'Buyer Profile Test',
-            'username' => 'buyer_profile_'.$suffix,
             'nim' => 'BP'.$suffix,
             'email' => 'buyer_profile_'.$suffix.'@example.com',
             'password' => 'password',

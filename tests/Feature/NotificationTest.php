@@ -239,7 +239,6 @@ class NotificationTest extends TestCase
 
         $seller = User::create([
             'name' => 'Seller Test',
-            'username' => 'seller_notif_'.$suffix,
             'nim' => 'SN'.$suffix,
             'email' => 'seller_notif_'.$suffix.'@example.com',
             'password' => 'password',
@@ -249,7 +248,6 @@ class NotificationTest extends TestCase
 
         $buyer = User::create([
             'name' => 'Buyer Test',
-            'username' => 'buyer_notif_'.$suffix,
             'nim' => 'BN'.$suffix,
             'email' => 'buyer_notif_'.$suffix.'@example.com',
             'password' => 'password',

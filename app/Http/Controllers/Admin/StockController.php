@@ -252,7 +252,7 @@ class StockController extends Controller
      */
     public function destroy(Product $product): RedirectResponse
     {
-        // Admin/moderator boleh menghapus barang siapa saja untuk moderasi.
+        // Admin boleh menghapus barang siapa saja untuk moderasi.
         $name = $product->name;
         $id = $product->id;
         $actorId = (int) (auth()->id() ?? 0);

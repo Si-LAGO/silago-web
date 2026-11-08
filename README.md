@@ -43,7 +43,7 @@ DB_PASSWORD=
 
 | Tabel | Fungsi |
 |---|---|
-| `users` | Akun (role `user`/`admin`/`moderator`, status, `google_id`, `avatar`, `phone`, `show_phone`, `fcm_token`, suspend) |
+| `users` | Akun (role `user`/`admin`, status, `google_id`, `avatar`, `phone`, `show_phone`, `fcm_token`, suspend) |
 | `password_reset_tokens` | Token reset password |
 | `sessions` | Sesi admin web |
 | `cache`, `cache_locks` | Cache driver database |
@@ -77,7 +77,7 @@ DB_PASSWORD=
 ## Fitur
 
 - **Autentikasi**: register/login email, Google OAuth (domain `@mhs.polines.ac.id`), verifikasi email/OTP, forgot/reset password, logout, token Sanctum.
-- **Profil**: edit profil, foto, username/NIM, nomor WhatsApp opsional + kontrol visibilitas, ringkasan statistik, daftar ulasan.
+- **Profil**: edit profil, foto, NIM, nomor WhatsApp opsional + kontrol visibilitas, ringkasan statistik, daftar ulasan.
 - **Marketplace**: katalog + filter/pencarian, detail produk, tambah/edit/hapus produk, perpanjang (`renew`), ubah status, favorit, lapor produk.
 - **Verifikasi & moderasi konten**: `ContentScanner` mencocokkan nama/deskripsi dengan daftar kata terlarang → `scan_result` = `safe`/`flagged` + `scan_note`.
 - **Chat**: teks, gambar (thumbnail), lokasi, balas pesan (`reply_to_id`), hapus pesan (soft delete "untuk semua"), presence, mark read, unread count.

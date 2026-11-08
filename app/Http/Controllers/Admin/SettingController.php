@@ -7,6 +7,9 @@ use App\Services\AuditLogService;
 use App\Services\SettingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Illuminate\Http\RedirectResponse;
 
@@ -84,6 +87,68 @@ class SettingController extends Controller
             return back()->with('success', 'Pengaturan berhasil disimpan.');
         } catch (\Exception $e) {
             return back()->with('error', 'Gagal menyimpan pengaturan: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Perbarui akun admin yang sedang login (nama, email, no. HP,
+     * foto profil, dan password opsional).
+     */
+    public function updateAccount(Request $request): RedirectResponse
+    {
+        $user = $request->user();
+
+        $validated = $request->validate([
+            'name'         => ['required', 'string', 'max:100'],
+            'email'        => ['required', 'email', 'max:255', 'unique:users,email,' . $user->id],
+            'phone'        => ['nullable', 'string', 'max:30'],
+            'profile_photo' => ['nullable', 'image', 'max:5120'],
+            'password'     => ['nullable', 'string', 'min:8', 'confirmed'],
+        ]);
+
+        try {
+            DB::transaction(function () use ($request, $user, $validated) {
+                if ($request->hasFile('profile_photo')) {
+                    if ($user->profile_photo && Storage::disk('public')->exists($user->profile_photo)) {
+                        Storage::disk('public')->delete($user->profile_photo);
+                    }
+                    $file = $request->file('profile_photo');
+                    $ext = $file->getClientOriginalExtension() ?: 'webp';
+                    $user->profile_photo = $file->storeAs(
+                        'profile-photos',
+                        Str::uuid() . '.' . $ext,
+                        'public'
+                    );
+                }
+
+                if ($request->boolean('remove_photo')) {
+                    if ($user->profile_photo && Storage::disk('public')->exists($user->profile_photo)) {
+                        Storage::disk('public')->delete($user->profile_photo);
+                    }
+                    $user->profile_photo = null;
+                }
+
+                $user->name = $validated['name'];
+                $user->email = $validated['email'];
+                $user->phone = $validated['phone'] ?? null;
+
+                if (! empty($validated['password'])) {
+                    $user->password = Hash::make($validated['password']);
+                }
+
+                $user->save();
+
+                $this->auditLogService->log(
+                    'setting',
+                    'Ubah Akun Admin',
+                    "Pengguna #{$user->id} ({$user->name})",
+                    'Perubahan data akun admin oleh dirinya sendiri'
+                );
+            });
+
+            return back()->with('success', 'Akun berhasil diperbarui.');
+        } catch (\Exception $e) {
+            return back()->with('error', 'Gagal memperbarui akun: ' . $e->getMessage());
         }
     }
 }

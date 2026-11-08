@@ -231,7 +231,7 @@ class ProductController extends Controller
     /**
      * Hapus produk (soft delete).
      *
-     * Pemilik atau admin/moderator boleh menghapus. Barang dengan transaksi
+     * Pemilik atau admin boleh menghapus. Barang dengan transaksi
      * aktif tidak boleh dihapus. Foto tetap disimpan untuk riwayat.
      */
     public function destroy(
@@ -242,7 +242,7 @@ class ProductController extends Controller
     ) {
         $user = $request->user();
         $isOwner = (int) $user->id === (int) $product->seller_id;
-        $isAdmin = in_array($user->role, ['admin', 'moderator'], true);
+        $isAdmin = $user->role === 'admin';
 
         if (! $isOwner && ! $isAdmin) {
             abort(403, 'Anda tidak berhak menghapus produk ini.');

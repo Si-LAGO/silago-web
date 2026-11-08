@@ -9,8 +9,7 @@
 <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
     <div class="col-span-1 bg-white rounded-xl border border-line shadow-sm p-6 text-center">
         <img src="{{ $user->avatar_url ?? 'https://ui-avatars.com/api/?name='.urlencode($user->name ?? 'User') }}" alt="Avatar" class="w-24 h-24 rounded-full object-cover mx-auto mb-4 border-4 border-page">
-        <h2 class="text-xl font-bold text-ink mb-1">{{ $user->name ?? '-' }}</h2>
-        <div class="text-muted text-sm mb-3">{{ $user->email ?? '-' }}</div>
+        <h2 class="text-xl font-bold text-ink mb-3">{{ $user->name ?? '-' }}</h2>
         
         <div class="flex justify-center gap-2 mb-6">
             @if(isset($user->status))
@@ -27,25 +26,21 @@
         </div>
 
         <div class="border-t border-line pt-4 space-y-2 text-sm text-left">
-            <div class="flex justify-between">
-                <span class="text-muted">Username</span>
-                <span class="font-medium text-ink">{{ $user->username ? '@' . $user->username : '-' }}</span>
+            <div class="flex justify-between gap-4">
+                <span class="text-muted shrink-0">Email</span>
+                <span class="font-medium text-ink text-right break-all">{{ $user->email ?? '-' }}</span>
             </div>
-            <div class="flex justify-between">
-                <span class="text-muted">NIM</span>
-                <span class="font-medium text-ink">{{ $user->nim ?? '-' }}</span>
+            <div class="flex justify-between gap-4">
+                <span class="text-muted shrink-0">No. HP / WA</span>
+                <span class="font-medium text-ink text-right">{{ $user->phone ?? '-' }}</span>
             </div>
-            <div class="flex justify-between">
-                <span class="text-muted">No. HP / WA</span>
-                <span class="font-medium text-ink">{{ $user->phone ?? '-' }}</span>
+            <div class="flex justify-between gap-4">
+                <span class="text-muted shrink-0">Peran</span>
+                <span class="font-semibold text-ink uppercase text-xs text-right">{{ $user->role ?? 'user' }}</span>
             </div>
-            <div class="flex justify-between">
-                <span class="text-muted">Peran</span>
-                <span class="font-semibold text-ink uppercase text-xs">{{ $user->role ?? 'user' }}</span>
-            </div>
-            <div class="flex justify-between">
-                <span class="text-muted">Bergabung</span>
-                <span class="font-medium text-ink">{{ isset($user->created_at) ? $user->created_at->format('d M Y') : '-' }}</span>
+            <div class="flex justify-between gap-4">
+                <span class="text-muted shrink-0">Bergabung</span>
+                <span class="font-medium text-ink text-right">{{ isset($user->created_at) ? $user->created_at->format('d M Y') : '-' }}</span>
             </div>
         </div>
         

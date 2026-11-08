@@ -3,30 +3,64 @@
 
 @section('content')
 <div class="space-y-6">
-    <form method="POST" action="{{ route('admin.settings.update') }}" class="bg-white rounded-xl border border-line shadow-sm overflow-hidden">
+    <!-- Pengaturan Akun (Admin) -->
+    @php($me = auth()->user())
+    <form method="POST" action="{{ route('admin.settings.account') }}" enctype="multipart/form-data"
+          x-data="{ photoPreview: null }" class="bg-white rounded-xl border border-line shadow-sm overflow-hidden">
         @csrf
-        @method('PUT')
-        <input type="hidden" name="form_section" value="general">
-        
+
         <div class="p-6">
-            <h3 class="text-lg font-bold text-ink mb-4 pb-2 border-b border-line">Pengaturan Umum</h3>
+            <h3 class="text-lg font-bold text-ink mb-4 pb-2 border-b border-line">Pengaturan Akun (Admin)</h3>
             <div class="space-y-4">
-                <div>
-                    <label class="block text-sm font-medium text-ink mb-1">Nama Aplikasi</label>
-                    <input type="text" name="app_name" value="{{ $settings['app_name'] ?? 'SILAGO' }}" class="w-full p-2 border border-line rounded-lg focus:ring-brand focus:border-brand">
+                <div class="flex items-center gap-4">
+                    <img :src="photoPreview || '{{ $me->avatar_url ?? 'https://ui-avatars.com/api/?name='.urlencode($me->name ?? 'Admin') }}'"
+                         alt="Foto Profil" class="h-20 w-20 rounded-full object-cover border-4 border-page">
+                    <div>
+                        <label class="block text-sm font-medium text-ink mb-1">Foto Profil</label>
+                        <input type="file" name="profile_photo" accept="image/*"
+                               @change="const f = $event.target.files[0]; if (f) photoPreview = URL.createObjectURL(f)"
+                               class="block text-sm text-muted file:mr-3 file:rounded-lg file:border-0 file:bg-brand file:px-3 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-green-700">
+                        <p class="text-xs text-muted mt-1">Format JPG/PNG/WebP, maks 5 MB. Pratinjau muncul sebelum disimpan.</p>
+                        @if($me->profile_photo)
+                            <label class="mt-2 inline-flex items-center gap-2 text-xs text-muted">
+                                <input type="checkbox" name="remove_photo" value="1" @change="if ($event.target.checked) photoPreview = 'https://ui-avatars.com/api/?name=' + encodeURIComponent('{{ $me->name ?? 'Admin' }}')" class="h-4 w-4 rounded border-line text-brand focus:ring-brand">
+                                Hapus foto saat ini
+                            </label>
+                        @endif
+                        @error('profile_photo')
+                            <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
+                        @enderror
+                    </div>
                 </div>
-                <div>
-                    <label class="block text-sm font-medium text-ink mb-1">Email Dukungan</label>
-                    <input type="email" name="support_email" value="{{ $settings['support_email'] ?? 'support@silago.id' }}" class="w-full p-2 border border-line rounded-lg focus:ring-brand focus:border-brand">
-                </div>
+
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-ink mb-1">Maksimal Foto Barang</label>
-                        <input type="number" name="max_photos" value="{{ $settings['max_photos'] ?? 5 }}" min="1" max="10" class="w-full p-2 border border-line rounded-lg focus:ring-brand focus:border-brand">
+                        <label class="block text-sm font-medium text-ink mb-1">Nama Lengkap</label>
+                        <input type="text" name="name" value="{{ old('name', $me->name) }}" required class="w-full p-2 border border-line rounded-lg focus:ring-brand focus:border-brand">
+                        <p class="text-xs text-muted mt-1">Nama tampilan yang muncul ke pengguna lain (boleh berspasi).</p>
+                        @error('name')<p class="text-xs text-red-600 mt-1">{{ $message }}</p>@enderror
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-ink mb-1">Durasi Barang Aktif (Hari)</label>
-                        <input type="number" name="listing_active_days" value="{{ $settings['listing_active_days'] ?? 30 }}" min="1" class="w-full p-2 border border-line rounded-lg focus:ring-brand focus:border-brand">
+                        <label class="block text-sm font-medium text-ink mb-1">Email</label>
+                        <input type="email" name="email" value="{{ old('email', $me->email) }}" required class="w-full p-2 border border-line rounded-lg focus:ring-brand focus:border-brand">
+                        @error('email')<p class="text-xs text-red-600 mt-1">{{ $message }}</p>@enderror
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-ink mb-1">No. HP / WA</label>
+                        <input type="text" name="phone" value="{{ old('phone', $me->phone) }}" class="w-full p-2 border border-line rounded-lg focus:ring-brand focus:border-brand" placeholder="08xxxxxxxxxx">
+                        @error('phone')<p class="text-xs text-red-600 mt-1">{{ $message }}</p>@enderror
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-ink mb-1">Password Baru</label>
+                        <input type="password" name="password" autocomplete="new-password" class="w-full p-2 border border-line rounded-lg focus:ring-brand focus:border-brand" placeholder="Kosongkan jika tidak diubah">
+                        @error('password')<p class="text-xs text-red-600 mt-1">{{ $message }}</p>@enderror
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-ink mb-1">Konfirmasi Password</label>
+                        <input type="password" name="password_confirmation" autocomplete="new-password" class="w-full p-2 border border-line rounded-lg focus:ring-brand focus:border-brand">
                     </div>
                 </div>
             </div>
@@ -34,7 +68,7 @@
 
         <div class="px-6 py-4 bg-gray-50 border-t border-line flex justify-end">
             <button type="submit" class="bg-brand hover:bg-green-700 text-white font-medium py-2 px-6 rounded-lg shadow-sm transition-colors">
-                Simpan Pengaturan
+                Simpan Akun
             </button>
         </div>
     </form>

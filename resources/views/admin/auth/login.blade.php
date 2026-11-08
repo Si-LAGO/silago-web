@@ -121,7 +121,7 @@
                     <div class="flex flex-col gap-2">
                         <h1 class="text-2xl font-bold leading-8 tracking-[-0.6px] text-slate-900">Masuk ke Akun Admin</h1>
                         <p class="text-sm leading-5 text-slate-500">
-                            Silakan masukkan email atau username dan kata sandi Anda untuk melanjutkan.
+                            Silakan masukkan email dan kata sandi Anda untuk melanjutkan.
                         </p>
                     </div>
 
@@ -138,9 +138,9 @@
                     <form method="POST" action="{{ Route::has('admin.authenticate') ? route('admin.authenticate') : '#' }}" class="flex flex-col gap-5 pt-1" novalidate>
                         @csrf
 
-                        <!-- Email atau username -->
+                        <!-- Email -->
                         <div class="flex flex-col gap-2">
-                            <label for="login" class="text-xs font-semibold uppercase leading-4 tracking-[0.6px] text-slate-700">Email atau Username</label>
+                            <label for="login" class="text-xs font-semibold uppercase leading-4 tracking-[0.6px] text-slate-700">Email</label>
                             <div class="relative rounded-lg shadow-sm">
                                 <span class="pointer-events-none absolute inset-y-0 left-3.5 flex items-center text-slate-400">
                                     <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-4 8"/></svg>

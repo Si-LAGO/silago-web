@@ -23,7 +23,6 @@ class OfferAcceptTest extends TestCase
 
         $seller = User::create([
             'name' => 'Seller Test',
-            'username' => 'seller_'.$suffix,
             'nim' => 'S'.$suffix,
             'email' => 'seller_'.$suffix.'@example.com',
             'password' => 'password',
@@ -33,7 +32,6 @@ class OfferAcceptTest extends TestCase
 
         $buyer = User::create([
             'name' => 'Buyer Test',
-            'username' => 'buyer_'.$suffix,
             'nim' => 'B'.$suffix,
             'email' => 'buyer_'.$suffix.'@example.com',
             'password' => 'password',

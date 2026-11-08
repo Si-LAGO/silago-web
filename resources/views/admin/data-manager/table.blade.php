@@ -82,7 +82,7 @@
                                     $val = $record->{$col};
                                     $cls = match($val) {
                                         'active','verified','completed','admin','resolved' => 'bg-green-100 text-green-700',
-                                        'pending','monitored','reviewed','agreed','moderator','reserved' => 'bg-yellow-100 text-yellow-700',
+                                        'pending','monitored','reviewed','agreed','reserved' => 'bg-yellow-100 text-yellow-700',
                                         'negotiating' => 'bg-blue-100 text-blue-700',
                                         'suspended','rejected','cancelled','canceled','dismissed' => 'bg-red-100 text-red-700',
                                         default => 'bg-gray-100 text-gray-600',
@@ -238,7 +238,6 @@
                                 'name'                => 'Nama',
                                 'email'               => 'Alamat Email',
                                 'nim'                 => 'NIM (Nomor Induk Mahasiswa)',
-                                'username'            => 'Username',
                                 'password'            => 'Kata Sandi',
                                 'phone'               => 'Nomor Telepon / WhatsApp',
                                 'role'                => 'Peran Pengguna (Role)',
@@ -344,7 +343,6 @@
                                     $isSelect = true;
                                     $options = [
                                         'user'      => 'User (Mahasiswa / Pengguna Biasa)',
-                                        'moderator' => 'Moderator',
                                         'admin'     => 'Administrator',
                                     ];
                                 }
@@ -424,7 +422,7 @@
                                     $options = [
                                         'all'   => 'Semua Pengguna (Umum)',
                                         'user'  => 'Hanya Pengguna Biasa',
-                                        'admin' => 'Hanya Admin & Moderator',
+                                        'admin' => 'Hanya Admin',
                                     ];
                                 }
                                 if ($field === 'resolution') {
