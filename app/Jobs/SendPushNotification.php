@@ -9,12 +9,18 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
+use Kreait\Firebase\Contract\Messaging;
+use Kreait\Firebase\Exception\Messaging\NotFound;
+use Kreait\Firebase\Messaging\AndroidConfig;
+use Kreait\Firebase\Messaging\CloudMessage;
+use Kreait\Firebase\Messaging\Notification;
 
 /**
- * Job untuk mengirim push notification via Firebase FCM.
- * Kegagalan job TIDAK mempengaruhi alur utama.
+ * Mengirim push notification via Firebase Cloud Messaging (FCM).
  *
- * TODO: konfigurasi kreait/laravel-firebase setelah akun Firebase dibuat.
+ * Dijalankan sinkron (dispatchSync) karena Render tidak menjalankan queue
+ * worker. Kegagalan push TIDAK boleh mempengaruhi alur utama, jadi semua
+ * exception ditangkap di sini.
  */
 class SendPushNotification implements ShouldQueue
 {
@@ -35,28 +41,65 @@ class SendPushNotification implements ShouldQueue
         $user = User::find($this->userId);
 
         if (! $user || ! $user->fcm_token) {
+            Log::warning('Push notification skipped - no FCM token', [
+                'user_id' => $this->userId,
+                'type' => $this->data['type'] ?? null,
+            ]);
             return; // Tidak ada token FCM, lewati
         }
 
-        // TODO: Implementasi FCM setelah kreait/laravel-firebase dikonfigurasi
-        // $messaging = app(\Kreait\Firebase\Contract\Messaging::class);
-        // $message = \Kreait\Firebase\Messaging\CloudMessage::withTarget('token', $user->fcm_token)
-        //     ->withNotification(\Kreait\Firebase\Messaging\Notification::create($this->title, $this->body))
-        //     ->withData($this->data);
-        // $messaging->send($message);
+        // Nilai data FCM wajib string; buang nilai null.
+        $data = [];
+        foreach ($this->data as $key => $value) {
+            if ($value === null) {
+                continue;
+            }
+            $data[(string) $key] = is_bool($value)
+                ? ($value ? '1' : '0')
+                : (string) $value;
+        }
 
-        Log::info('FCM push (stub): kirim notifikasi ke user', [
-            'user_id' => $this->userId,
-            'title'   => $this->title,
-        ]);
-    }
+        try {
+            Log::info('Sending push notification', [
+                'user_id' => $this->userId,
+                'type' => $this->data['type'] ?? null,
+                'token_prefix' => substr($user->fcm_token, 0, 12) . '…',
+            ]);
 
-    public function failed(\Throwable $exception): void
-    {
-        // Kegagalan FCM hanya dicatat, tidak disebarkan
-        Log::warning('Push notification gagal', [
-            'user_id' => $this->userId,
-            'error'   => $exception->getMessage(),
-        ]);
+            $message = CloudMessage::new()
+                ->withToken($user->fcm_token)
+                ->withNotification(Notification::create($this->title, $this->body))
+                ->withData($data)
+                ->withAndroidConfig(AndroidConfig::fromArray([
+                    'priority' => 'high',
+                    'notification' => [
+                        'channel_id' => 'silago_default',
+                        'sound' => 'default',
+                    ],
+                ]));
+
+            app(Messaging::class)->send($message);
+
+            Log::info('Push notification terkirim', [
+                'user_id' => $this->userId,
+                'type'    => $this->data['type'] ?? null,
+                'token'   => substr($user->fcm_token, 0, 12) . '…',
+            ]);
+        } catch (NotFound $e) {
+            // Token sudah tidak valid (app di-uninstall / token kadaluarsa).
+            Log::warning('Push notification token invalid', [
+                'user_id' => $this->userId,
+                'type' => $this->data['type'] ?? null,
+            ]);
+            $user->update(['fcm_token' => null]);
+        } catch (\Throwable $e) {
+            // Kegagalan push hanya dicatat, tidak disebarkan.
+            Log::warning('Push notification gagal', [
+                'user_id' => $this->userId,
+                'type'    => $this->data['type'] ?? null,
+                'error'   => $e->getMessage(),
+                'class'   => get_class($e),
+            ]);
+        }
     }
 }

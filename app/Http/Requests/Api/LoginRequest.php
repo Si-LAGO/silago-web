@@ -18,8 +18,6 @@ class LoginRequest extends FormRequest
                 $this->merge(['login' => $this->email]);
             } elseif ($this->has('nim')) {
                 $this->merge(['login' => $this->nim]);
-            } elseif ($this->has('username')) {
-                $this->merge(['login' => $this->username]);
             }
         }
     }

@@ -58,14 +58,14 @@ POST /auth/register {name, nim, email, password, password_confirmation}
   → 201 + UserResource + email_verify_{email} cache 15 menit (6 digit, Log::info)
 POST /auth/verify-email {email, code}
   → 200 + email_verified_at = now()
-POST /auth/login {login|email|nim|username, password, ?fcm_token}
+POST /auth/login {login|email|nim, password, ?fcm_token}
   → 200 + {token, user}   // token = createToken('silago_api')->plainTextToken
 Header: Authorization: Bearer <token>
 POST /auth/logout → delete currentAccessToken()
 ```
 
-- `login` field auto-filled dari `email`/`nim`/`username` di `LoginRequest::prepareForValidation`.
-- Login coba `email` dulu (FILTER_VALIDATE_EMAIL), fallback `nim` → `username`.
+- `login` field auto-filled dari `email`/`nim` di `LoginRequest::prepareForValidation`.
+- Login coba `email` dulu (FILTER_VALIDATE_EMAIL), fallback `nim`.
 - Email domain whitelist: `settings.allowed_email_domains` (newline-separated, `str_ends_with` case-insensitive).
 - `fcm_token` disimpan ke `users.fcm_token` saat login atau via `POST /me/fcm-token`.
 
@@ -117,7 +117,6 @@ Publik, tanpa auth. Tidak terblokir maintenance? (semua publik pakai `maintenanc
   "max_photos": 5,
   "maintenance_mode": false,
   "listing_active_days": 30,
-  "low_stock_threshold": 3,
   "report_reasons": ["Penipuan","Barang terlarang","Sengketa transaksi","Perilaku pengguna","Foto tidak sesuai","Spam chat","Lainnya"],
   "allowed_email_domains": "@polines.ac.id\n@students.polines.ac.id"
 }
@@ -146,7 +145,7 @@ Body `email`. Rate limit 1/60s (RateLimiter `resend_verification_{email}`).
 → 200 `{message}` · 400 sudah terverifikasi · 429
 
 #### POST /auth/login
-Body `login|email|nim|username` + `password` + `?fcm_token`. Rate limit `login:{ip}` 5/min.
+Body `login|email|nim` + `password` + `?fcm_token`. Rate limit `login:{ip}` 5/min.
 → 200 `{token, user}` · 401 kredensial salah / suspended · 429
 
 #### POST /auth/logout
@@ -226,7 +225,6 @@ Auth + multipart. Set `seller_id=me`, `status=available`, `verification_status=p
 | completeness | nullable max255 |
 | sell_reason | nullable string |
 | price | required numeric min1 |
-| stock | required int min1 |
 | category_id | required exists categories.id |
 | photos | required array min1 max `max_photos` (default 5) |
 | photos.* | image mimes jpg/jpeg/png/webp max1024 |
@@ -264,17 +262,8 @@ Auth, `?status`, `?verification_status`, paginate 15, `ProductListResource`.
 ### 6. Conversations
 
 #### GET /conversations
-Auth, `where buyer_id=me OR seller_id=me`, eager `product.images, buyer, seller, lastMessage, latestDeal, latestOffer`, filter `?q` LIKE product.name / nama lawan bicara, order `updated_at desc`, paginate 20, `unread_count` dihitung via `withCount`.
-`ConversationResource` sekarang menyertakan `role` (`buyer`/`seller`), `stage` (`chat|negotiation|deal|completed|cancelled`), `product.cover_image`, serta `last_message.{body,type,sender_id,created_at}`.
+Auth, `where buyer_id=me OR seller_id=me`, eager `product.images, buyer, seller, lastMessage`, filter `?q` LIKE product.name, order `updated_at desc`, paginate 20, hitung `unread_count` per conversation (`sender_id != me AND read_at IS NULL`).
 → 200 `Paginated<ConversationResource>`
-
-#### GET /conversations/unread-count
-Auth. Total pesan `sender_id != me AND read_at IS NULL` dari semua percakapan.
-→ 200 `{count}`
-
-#### POST /conversations/read-all
-Auth. Tandai semua pesan dari lawan bicara di seluruh percakapan sebagai dibaca.
-→ 200 `{message, count}`
 
 #### POST /products/{product}/conversations
 Auth, `firstOrCreate(product_id, buyer_id=me, seller_id=product.seller_id)`. 403 jika milik sendiri atau `verification_status !== verified || status !== available`.
@@ -286,24 +275,19 @@ Auth, participant only. Return:
 {
   "data": {
     "conversation": {ConversationResource},
-    "last_offer": {"id","sender_id","offer_price","offer_status","parent_offer_id","message","created_at"}|null,
-    "active_deal": {"id","status"}|null,
-    "latest_deal": {"id","status","agreed_price","quantity","completed_at","cancelled_at","cancel_note","actions"}|null
+    "last_offer": {"id","offer_price","offer_status"}|null,
+    "active_deal": {"id","status"}|null
   }
 }
 ```
-`last_offer` = `messages where type=offer latest`, `active_deal` = deal `agreed` terbaru, `latest_deal` = deal terbaru (agreed/completed/cancelled) + `actions` (`can_generate_qr`, `can_complete`, `can_cancel`, `can_review`).
+`last_offer` = `messages where type=offer latest`, `active_deal` = `MarketplaceDeal where product_id, buyer_id, seller_id, status=agreed`.
 
 ---
 
 ### 7. Messages
 
 #### GET /conversations/{conversation}/messages
-Auth, participant only. Query:
-- tanpa param → 30 pesan **terbaru**, dikembalikan urut lama → baru
-- `?after_id` → pesan dengan id > after_id, urut lama → baru (polling)
-- `?before_id` → 30 pesan sebelum id tersebut (riwayat lama)
-- `?limit` default 30, maksimal 100
+Auth, participant only. Query `?after_id` (id >), `?limit` default 30, order `created_at asc`.
 → 200 `[MessageResource]`
 
 #### POST /conversations/{conversation}/messages
@@ -319,12 +303,16 @@ Auth, participant only, `StoreMessageRequest`:
 | location_address | nullable max255 |
 | location_accuracy | nullable integer |
 
-`DB::transaction` create + `touch` conversation, notify `pesanBaru` ke lawan.
+`DB::transaction` create + `touch` conversation, lalu kirim notifikasi `new_message` ke lawan (diagregasi per percakapan; dilewati bila presence penerima masih aktif).
 → 201 `MessageResource`
 
 #### POST /conversations/{conversation}/read
-Auth, participant only. `where sender_id != me AND read_at IS NULL → read_at=now()`
+Auth, participant only. `where sender_id != me AND read_at IS NULL → read_at=now()`, memperbarui presence, dan menandai notifikasi `new_message` percakapan ini sebagai dibaca.
 → 200 `{message:"Messages marked as read"}`
+
+#### POST /conversations/{conversation}/presence
+Auth, participant only. Heartbeat saat layar chat terbuka; dipakai untuk menekan notifikasi pesan baru.
+→ 200 `{message:"Presence diperbarui."}`
 
 ---
 
@@ -333,29 +321,22 @@ Auth, participant only. `where sender_id != me AND read_at IS NULL → read_at=n
 Business: `OfferService`. Satu conversation hanya 1 offer `pending`. Counter via `parent_offer_id` → set lama `countered`.
 
 #### POST /conversations/{conversation}/offers
-Auth, participant only. Validasi `price >0 && <= product.price` else 400. Body `price`, `?note`, `?parent_offer_id exists messages.id` (harus dari conversation yang sama).
-`note` disimpan di kolom `messages.message`.
+Auth, participant only. Validasi `price >0 && <= product.price` else 400. Body `price`, `?note`, `?parent_offer_id exists messages.id`.
 
 → 201 `MessageResource(type=offer, offer_price, offer_status=pending)` · 409 sudah ada pending tanpa parent
 
-#### POST /offers/{offer}/accept
+#### POST /offers/{message}/accept
 Auth, participant only, recipient only (sender ≠ me) else 403. Body `?quantity int min1 default1`. `OfferService::acceptOffer`:
 - lock offer, cek pending, bukan sender
-- lock conversation+product, cek `stock >= quantity` else 422
+- lock conversation+product, cek produk masih `available` dan terverifikasi
 - cek tidak ada `deals where conversation_id & status=agreed` else 409
-- `offer_status=accepted`, `stock -= quantity`, `product.status = sold if 0 else available`, create `MarketplaceDeal status=agreed`
+- `offer_status=accepted`, `product.status = reserved`, create `MarketplaceDeal status=agreed`
 
 → 201 `DealResource` · 403/409/422
 
-#### POST /offers/{offer}/reject
-Auth, participant only, recipient only. `offer_status=rejected` + system message "Penawaran ditolak."
+#### POST /offers/{message}/reject
+Auth, participant only, recipient only. `offer_status=rejected`
 → 200 `{message:"Offer rejected"}`
-
-#### POST /offers/{offer}/withdraw
-Auth, sender only, status harus `pending`. `offer_status=rejected` + system message "Penawaran ditarik."
-→ 200 `{message:"Offer withdrawn"}` · 403/409
-
-Catatan: setiap accept/reject/withdraw dan complete/cancel deal membuat `messages.type=system` agar perubahan status terlihat oleh polling mobile.
 
 ---
 
@@ -398,11 +379,11 @@ Auth, buyer only. `CompleteRequest`: `token required_without:code` XOR `code siz
 4. jika `completion_token_expires_at` past → 422
 5. set `completed`, `completed_at=now`, clear hashes
 
-→ 200 `DealResource` · 422/423/409 · Notif `transaksiSelesai` ke kedua pihak
+→ 200 `DealResource` · 422/423/409 · Notif `deal_completed` ke kedua pihak
 
 #### POST /deals/{deal}/cancel
 Auth, buyer|seller, `status=agreed` only. Body `?note max1000`. `DealService::cancel`:
-- lock deal+product, `stock += quantity`, `product.status=available`, `deal.status=cancelled`, clear QR
+- lock deal+product, `product.status=available`, `deal.status=cancelled`, clear QR
 
 → 200 `{message:"Deal cancelled"}` · 409
 
@@ -448,7 +429,9 @@ Auth. `Product where user_id=user AND status=available AND is_verified=true → 
 ### 13. Notifications
 
 #### GET /notifications
-Auth. `where user_id=me order created_at desc paginate 20` → `NotificationResource` (created_at format `D MMM YYYY, HH:mm` Asia/Jakarta)
+Auth. `where user_id=me order updated_at desc paginate 20` → `NotificationResource`. Setiap item memuat `type`, `reference_id`, `data`, `is_read`, serta `created_at`/`updated_at` ISO-8601. Tipe yang dipakai: `new_message`, `new_offer`, `offer_rejected`, `deal_agreed`, `deal_renegotiated`, `deal_cancelled`, `deal_completed`, `review_received`, `review_reminder`, `report_updated`, `cod_reminder`, `product_approved`, `product_rejected`, `product_archived`.
+
+Notifikasi pesan baru diagregasi per percakapan (satu baris belum dibaca, `data.count` bertambah) dan tidak dibuat saat penerima sedang membuka chat (presence heartbeat).
 
 #### GET /notifications/unread-count
 → 200 `{count}`
@@ -457,7 +440,7 @@ Auth. `where user_id=me order created_at desc paginate 20` → `NotificationReso
 Owner only else 403. `is_read=true`
 
 #### POST /notifications/read-all
-`where is_read=false → is_read=true` → `{message:"All marked as read"}`
+`where is_read=false → is_read=true` → `{message:"All marked as read", count}`
 
 ---
 
@@ -491,20 +474,16 @@ Auth. Toggle: jika exists → delete `favorited=false` else create `favorited=tr
 ```
 
 ### ProductResource
-`id, name, description, condition, specification, completeness, sell_reason, price(float), stock, status, verification_status, rejection_note(only owner), scan_result/scan_note(only staff), expires_at, created_at, updated_at, cover_image(url|null), seller{id,name,profile_photo_url,is_verified}, category{id,name,slug,icon}, images[{id,url,sort_order}], is_favorited`
+`id, name, description, condition, specification, completeness, sell_reason, price(float), status, verification_status, rejection_note(only owner), scan_result/scan_note(only staff), expires_at, created_at, updated_at, seller{id,name,profile_photo_url,is_verified}, category{id,name,slug,icon}, images[{id,url,sort_order}], is_favorited`
 
 ### ProductListResource
-`id, name, price, stock, status, verification_status, condition, created_at, cover_image(url|null), seller{id,name,profile_photo_url}, category{id,name,slug}, is_favorited`
-
-Catatan URL gambar produk: nilai `cover_image` dan `images[].url` dapat berupa URL absolut, path lama `/storage/...`, atau path `/media/product-images/{id}` untuk gambar yang tersimpan di database (PostgreSQL/Supabase). Klien menempelkan path relatif ke origin API.
-
-Gambar baru disimpan di tabel `product_image_data`. Untuk memindahkan gambar lama yang masih ada di disk ke database sebelum redeploy, jalankan `php artisan images:backfill` di container lama.
+`id, name, price, status, verification_status, condition, created_at, cover_image(url|null), seller{id,name,profile_photo_url}, category{id,name,slug}, is_favorited`
 
 ### ConversationResource
-`id, buyer_id, seller_id, role(buyer|seller), stage(chat|negotiation|deal|completed|cancelled), product{id,name,cover_image,price,status,verification_status}, other_party{id,name,profile_photo_url,avatar_url,is_verified}, last_message{body truncated 50, type, sender_id, created_at}|null, unread_count, updated_at`
+`id, product{id,name,cover_image_url,price,status,verification_status}, other_party{id,name,profile_photo_url,is_verified}, last_message{body truncated 50, created_at diffForHumans}|null, unread_count, updated_at`
 
 ### MessageResource
-`id, conversation_id, sender_id, type(text|location|offer|system), message, offer_price, offer_status, parent_offer_id, location_lat/lng/name/address/accuracy, read_at, created_at`
+`id, conversation_id, sender_id, type(text|location|offer), message, offer_price, offer_status, parent_offer_id, location_lat/lng/name/address/accuracy, read_at, created_at`
 
 ### DealResource
 `id, product{id,name,cover_image,price}, buyer{id,name}, seller{id,name}, quantity, agreed_price, total_price, status, agreed_at, completed_at, cancelled_at, cancel_note, created_at`
@@ -544,7 +523,7 @@ curl -X PUT $BASE/me -H "Authorization: Bearer $TOKEN" -F name="Budi S" -F profi
 # Products
 curl "$BASE/products?search=laptop&sort=price_asc&category_id=1" -H "Authorization: Bearer $TOKEN"
 curl -X POST $BASE/products -H "Authorization: Bearer $TOKEN" \
-  -F name="Laptop ThinkPad" -F condition="Bekas Layak" -F price=3500000 -F stock=2 -F category_id=1 -F photos[]=@a.jpg -F photos[]=@b.jpg
+  -F name="Laptop ThinkPad" -F condition="Bekas Layak" -F price=3500000 -F category_id=1 -F photos[]=@a.jpg -F photos[]=@b.jpg
 curl $BASE/products/1 -H "Authorization: Bearer $TOKEN"
 
 # Conversations & messages

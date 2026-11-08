@@ -112,9 +112,6 @@ class AuthController extends Controller
             $attempt = Auth::attempt(['email' => $loginInput, 'password' => $request->password]);
         } else {
             $attempt = Auth::attempt(['nim' => $loginInput, 'password' => $request->password]);
-            if (!$attempt) {
-                $attempt = Auth::attempt(['username' => $loginInput, 'password' => $request->password]);
-            }
         }
 
         if (!$attempt) {
@@ -242,7 +239,10 @@ class AuthController extends Controller
 
     public function logout(Request $request)
     {
-        $request->user()->currentAccessToken()->delete();
+        $user = $request->user();
+        // Lepas token FCM agar perangkat tidak lagi menerima push akun ini.
+        $user->update(['fcm_token' => null]);
+        $user->currentAccessToken()->delete();
         return response()->json(['message' => 'Logout berhasil']);
     }
 

@@ -68,7 +68,7 @@
                     </h2>
 
                     <p class="text-sm leading-[22.75px] text-emerald-100/80">
-                        Pusat kendali dan tindak lanjut laporan pengguna, manajemen stok barang, serta pengawasan transaksi realtime.
+                        Pusat kendali dan tindak lanjut laporan pengguna, manajemen barang, serta pengawasan transaksi realtime.
                     </p>
 
                     <div class="flex flex-col gap-3.5 pt-5">
@@ -87,8 +87,8 @@
                                 <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"/><path d="M12 22V12"/><polyline points="3.29 7 12 12 20.71 7"/></svg>
                             </div>
                             <div>
-                                <div class="text-xs font-semibold leading-4 text-white">Katalog &amp; Stok Barang</div>
-                                <div class="text-[11px] leading-4 text-emerald-200/70">Monitor inventaris dan kategori aktif</div>
+                                <div class="text-xs font-semibold leading-4 text-white">Katalog Barang</div>
+                                <div class="text-[11px] leading-4 text-emerald-200/70">Monitor barang dan kategori aktif</div>
                             </div>
                         </div>
 
@@ -121,7 +121,7 @@
                     <div class="flex flex-col gap-2">
                         <h1 class="text-2xl font-bold leading-8 tracking-[-0.6px] text-slate-900">Masuk ke Akun Admin</h1>
                         <p class="text-sm leading-5 text-slate-500">
-                            Silakan masukkan email atau username dan kata sandi Anda untuk melanjutkan.
+                            Silakan masukkan email dan kata sandi Anda untuk melanjutkan.
                         </p>
                     </div>
 
@@ -138,9 +138,9 @@
                     <form method="POST" action="{{ Route::has('admin.authenticate') ? route('admin.authenticate') : '#' }}" class="flex flex-col gap-5 pt-1" novalidate>
                         @csrf
 
-                        <!-- Email atau username -->
+                        <!-- Email -->
                         <div class="flex flex-col gap-2">
-                            <label for="login" class="text-xs font-semibold uppercase leading-4 tracking-[0.6px] text-slate-700">Email atau Username</label>
+                            <label for="login" class="text-xs font-semibold uppercase leading-4 tracking-[0.6px] text-slate-700">Email</label>
                             <div class="relative rounded-lg shadow-sm">
                                 <span class="pointer-events-none absolute inset-y-0 left-3.5 flex items-center text-slate-400">
                                     <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-4 8"/></svg>

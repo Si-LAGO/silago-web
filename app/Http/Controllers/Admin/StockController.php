@@ -8,20 +8,22 @@ use App\Models\Product;
 use App\Models\ProductImage;
 use App\Models\User;
 use App\Services\AuditLogService;
-use App\Services\ProductImageService;
-use App\Services\SettingService;
+use App\Services\NotificationService;
+use App\Services\ProductLifecycleService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class StockController extends Controller
 {
     public function __construct(
         private readonly AuditLogService $auditLogService,
-        private readonly SettingService $settingService,
-        private readonly ProductImageService $imageService
+        private readonly ProductLifecycleService $productLifecycle,
+        private readonly NotificationService $notificationService,
     ) {}
 
     public function index(Request $request): View
@@ -33,15 +35,17 @@ class StockController extends Controller
         $query = Product::query();
         
         $allCount = (clone $query)->count();
-        $availableCount = (clone $query)->where('stock', '>', 0)->count();
-        $outCount = (clone $query)->where('stock', 0)->count();
+        $availableCount = (clone $query)->where('status', 'available')->count();
+        $outCount = (clone $query)->where('status', 'sold')->count();
 
         $products = $query->with(['seller', 'category', 'images' => fn ($q) => $q->orderBy('sort_order')])
             ->when($filter && $filter !== 'all', function ($q) use ($filter) {
                 if ($filter === 'available') {
-                    $q->where('stock', '>', 0);
+                    $q->where('status', 'available');
+                } elseif ($filter === 'reserved') {
+                    $q->where('status', 'reserved');
                 } elseif ($filter === 'out') {
-                    $q->where('stock', 0);
+                    $q->where('status', 'sold');
                 } elseif ($filter === 'pending') {
                     $q->where('verification_status', 'pending');
                 }
@@ -55,16 +59,15 @@ class StockController extends Controller
                 });
             })
             ->latest('id')
-            ->paginate(15)
+            ->paginate(10)
             ->withQueryString();
 
-        $isMaintenance = $this->settingService->getBool('maintenance_mode', false);
         $sellers = User::orderBy('name')->get(['id', 'name', 'email', 'nim']);
         $categories = Category::orderBy('name')->get(['id', 'name']);
 
         return view('admin.stock.index', compact(
             'products', 'allCount', 'availableCount', 'outCount', 'filter',
-            'isMaintenance', 'sellers', 'categories'
+            'sellers', 'categories'
         ));
     }
 
@@ -85,7 +88,7 @@ class StockController extends Controller
         $data['images'] = $product->images->map(function (ProductImage $image) {
             return [
                 'id' => $image->id,
-                'url' => $image->url,
+                'url' => Storage::url($image->image_path),
                 'sort_order' => $image->sort_order,
             ];
         })->values()->all();
@@ -97,29 +100,23 @@ class StockController extends Controller
     }
 
     /**
-     * Tambah barang baru langsung saat mode maintenance aktif.
+     * Tambah barang baru.
      */
     public function store(Request $request): RedirectResponse
     {
-        if (! $this->settingService->getBool('maintenance_mode', false)) {
-            return back()->with('error', 'Penambahan barang langsung hanya dapat dilakukan saat Mode Maintenance aktif.');
-        }
-
         $rules = [
             'seller_id'           => 'required|exists:users,id',
             'category_id'         => 'required|exists:categories,id',
             'name'                => 'required|string|max:150',
             'price'               => 'required|numeric|min:0',
-            'stock'               => 'required|integer|min:0',
             'condition'           => 'nullable|string|max:50',
-            'status'              => 'required|in:available,sold,hidden,archived',
+            'status'              => 'required|in:available,reserved,sold,hidden,archived',
             'verification_status' => 'required|in:verified,pending,rejected',
             'description'         => 'nullable|string',
             'specification'       => 'nullable|string',
             'completeness'        => 'nullable|string|max:100',
             'sell_reason'         => 'nullable|string',
-            'photos'              => 'nullable|array|max:5',
-            'photos.*'            => 'image|mimes:jpg,jpeg,png,webp|max:5120',
+            'photo'               => 'nullable|image|mimes:jpg,jpeg,png,webp,svg,gif|max:5120',
         ];
 
         $validator = validator(
@@ -133,7 +130,7 @@ class StockController extends Controller
 
         try {
             DB::transaction(function () use ($request, $validated) {
-                $productData = collect($validated)->except(['photos'])->all();
+                $productData = collect($validated)->except(['photo'])->all();
                 
                 foreach ($productData as $k => $v) {
                     if ($v === '') $productData[$k] = null;
@@ -144,23 +141,29 @@ class StockController extends Controller
                 $product = new Product();
                 $product->forceFill($productData)->save();
 
-                if ($request->hasFile('photos')) {
-                    foreach ($request->file('photos') as $index => $file) {
-                        $this->imageService->create($product, $file, $index);
-                    }
+                if ($request->hasFile('photo')) {
+                    $file = $request->file('photo');
+                    $ext = $file->getClientOriginalExtension() ?: 'webp';
+                    $filename = Str::uuid() . '.' . $ext;
+                    $path = $file->storeAs('products', $filename, 'public');
+
+                    $product->images()->create([
+                        'image_path' => $path,
+                        'sort_order' => 0,
+                    ]);
                 }
 
                 $this->auditLogService->log(
                     'stock',
                     'Tambah Barang (Maintenance)',
                     "Barang #{$product->id} ({$product->name})",
-                    'Penambahan barang langsung saat maintenance mode'
+                    'Penambahan barang oleh admin'
                 );
             });
 
             return redirect()
                 ->route('admin.stock.index')
-                ->with('success', 'Barang berhasil ditambahkan dan langsung tersedia di stok.');
+                ->with('success', 'Barang berhasil ditambahkan dan langsung tersedia di katalog.');
         } catch (\Exception $e) {
             return back()
                 ->withInput()
@@ -169,29 +172,23 @@ class StockController extends Controller
     }
 
     /**
-     * Ubah data barang saat mode maintenance aktif.
+     * Ubah data barang.
      */
     public function update(Request $request, Product $product): RedirectResponse
     {
-        if (! $this->settingService->getBool('maintenance_mode', false)) {
-            return back()->with('error', 'Perubahan barang langsung hanya dapat dilakukan saat Mode Maintenance aktif.');
-        }
-
         $rules = [
             'seller_id'           => 'required|exists:users,id',
             'category_id'         => 'required|exists:categories,id',
             'name'                => 'required|string|max:150',
             'price'               => 'required|numeric|min:0',
-            'stock'               => 'required|integer|min:0',
             'condition'           => 'nullable|string|max:50',
-            'status'              => 'required|in:available,sold,hidden,archived',
+            'status'              => 'required|in:available,reserved,sold,hidden,archived',
             'verification_status' => 'required|in:verified,pending,rejected',
             'description'         => 'nullable|string',
             'specification'       => 'nullable|string',
             'completeness'        => 'nullable|string|max:100',
             'sell_reason'         => 'nullable|string',
-            'photos'              => 'nullable|array|max:5',
-            'photos.*'            => 'image|mimes:jpg,jpeg,png,webp|max:5120',
+            'photo'               => 'nullable|image|mimes:jpg,jpeg,png,webp,svg,gif|max:5120',
         ];
 
         $validator = validator(
@@ -205,7 +202,7 @@ class StockController extends Controller
 
         try {
             DB::transaction(function () use ($request, $product, $validated) {
-                $productData = collect($validated)->except(['photos'])->all();
+                $productData = collect($validated)->except(['photo'])->all();
                 
                 foreach ($productData as $k => $v) {
                     if ($v === '') $productData[$k] = null;
@@ -213,21 +210,30 @@ class StockController extends Controller
 
                 $product->forceFill($productData)->save();
 
-                if ($request->hasFile('photos')) {
-                    foreach ($product->images()->get() as $oldImg) {
-                        $this->imageService->delete($oldImg);
+                if ($request->hasFile('photo')) {
+                    foreach ($product->images as $oldImg) {
+                        if ($oldImg->image_path && Storage::disk('public')->exists($oldImg->image_path)) {
+                            Storage::disk('public')->delete($oldImg->image_path);
+                        }
                     }
+                    $product->images()->delete();
 
-                    foreach ($request->file('photos') as $index => $file) {
-                        $this->imageService->create($product, $file, $index);
-                    }
+                    $file = $request->file('photo');
+                    $ext = $file->getClientOriginalExtension() ?: 'webp';
+                    $filename = Str::uuid() . '.' . $ext;
+                    $path = $file->storeAs('products', $filename, 'public');
+
+                    $product->images()->create([
+                        'image_path' => $path,
+                        'sort_order' => 0,
+                    ]);
                 }
 
                 $this->auditLogService->log(
                     'stock',
                     'Ubah Barang (Maintenance)',
                     "Barang #{$product->id} ({$product->name})",
-                    'Perubahan barang langsung saat maintenance mode'
+                    'Perubahan barang oleh admin'
                 );
             });
 
@@ -242,36 +248,39 @@ class StockController extends Controller
     }
 
     /**
-     * Hapus barang saat mode maintenance aktif.
+     * Hapus barang.
      */
     public function destroy(Product $product): RedirectResponse
     {
-        if (! $this->settingService->getBool('maintenance_mode', false)) {
-            return back()->with('error', 'Penghapusan barang langsung hanya dapat dilakukan saat Mode Maintenance aktif.');
-        }
+        // Admin boleh menghapus barang siapa saja untuk moderasi.
+        $name = $product->name;
+        $id = $product->id;
+        $actorId = (int) (auth()->id() ?? 0);
 
         try {
-            DB::transaction(function () use ($product) {
-                $name = $product->name;
-                $id = $product->id;
+            $recipients = $this->productLifecycle->deleteProduct($product, $actorId);
 
-                foreach ($product->images()->get() as $img) {
-                    $this->imageService->delete($img);
-                }
-
-                $product->delete();
-
-                $this->auditLogService->log(
-                    'stock',
-                    'Hapus Barang (Maintenance)',
-                    "Barang #{$id} ({$name})",
-                    'Penghapusan barang langsung saat maintenance mode'
+            foreach ($recipients as $recipient) {
+                $this->notificationService->productUnavailable(
+                    $recipient['user_id'],
+                    $recipient['conversation_id'],
+                    $name,
+                    $id,
                 );
-            });
+            }
+
+            $this->auditLogService->log(
+                'stock',
+                'Hapus Barang',
+                "Barang #{$id} ({$name})",
+                'Produk dihapus (soft delete) oleh admin. Riwayat transaksi tetap disimpan.'
+            );
 
             return redirect()
                 ->route('admin.stock.index')
                 ->with('success', 'Barang berhasil dihapus.');
+        } catch (\RuntimeException $e) {
+            return back()->with('error', $e->getMessage());
         } catch (\Exception $e) {
             return back()->with('error', 'Gagal menghapus barang: ' . $e->getMessage());
         }
@@ -297,7 +306,6 @@ class StockController extends Controller
             'category_id'         => 'Kategori Barang',
             'name'                => 'Nama Barang',
             'price'               => 'Harga Barang',
-            'stock'               => 'Stok Barang',
             'condition'           => 'Kondisi Barang',
             'status'              => 'Status Barang',
             'verification_status' => 'Status Verifikasi',
@@ -305,7 +313,7 @@ class StockController extends Controller
             'specification'       => 'Spesifikasi',
             'completeness'        => 'Kelengkapan',
             'sell_reason'         => 'Alasan Dijual',
-            'photos'              => 'Foto Barang',
+            'photo'               => 'Foto Barang',
         ];
     }
 }

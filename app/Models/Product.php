@@ -5,9 +5,13 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Storage;
 
 class Product extends Model
 {
+    use SoftDeletes;
+
     protected $fillable = [
         'seller_id',
         'category_id',
@@ -18,7 +22,6 @@ class Product extends Model
         'completeness',
         'sell_reason',
         'price',
-        'stock',
         'status',
         'verification_status',
         'verified_by',
@@ -33,7 +36,6 @@ class Product extends Model
     {
         return [
             'price' => 'decimal:2',
-            'stock' => 'integer',
             'verified_at' => 'datetime',
             'expires_at' => 'datetime',
         ];
@@ -71,7 +73,15 @@ class Product extends Model
 
     public function getImageUrlAttribute(): ?string
     {
-        return $this->images->sortBy('sort_order')->first()?->url;
+        $firstImage = $this->images->sortBy('sort_order')->first();
+        if (!$firstImage || !$firstImage->image_path) {
+            return null;
+        }
+        $path = $firstImage->image_path;
+        if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
+            return $path;
+        }
+        return '/storage/' . ltrim($path, '/');
     }
 
     /**
@@ -83,8 +93,13 @@ class Product extends Model
     {
         return $this->images
             ->sortBy('sort_order')
-            ->map(fn (ProductImage $image) => $image->url)
-            ->filter()
+            ->map(function ($image) {
+                $path = $image->image_path;
+                if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
+                    return $path;
+                }
+                return Storage::url($path);
+            })
             ->values()
             ->all();
     }

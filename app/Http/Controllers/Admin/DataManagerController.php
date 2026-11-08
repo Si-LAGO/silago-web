@@ -33,14 +33,17 @@ use Illuminate\Http\JsonResponse;
 /**
  * Data Manager — CRUD langsung ke semua tabel.
  *
- * HANYA tersedia saat:
- * 1. Mode Maintenance aktif (middleware: maintenance.active)
- * 2. User adalah admin (middleware: admin.only)
+ * HANYA tersedia untuk user dengan role admin (middleware: admin.only).
  *
  * Semua aksi dicatat di audit log.
  */
 class DataManagerController extends Controller
 {
+    public function legacyRedirect(): RedirectResponse
+    {
+        return redirect()->route('admin.stock.index');
+    }
+
     /**
      * Registry tabel yang bisa dikelola.
      * Key = slug URL, value = konfigurasi tabel.
@@ -50,9 +53,9 @@ class DataManagerController extends Controller
             'model'      => User::class,
             'label'      => 'Pengguna',
             'icon'       => '👥',
-            'columns'    => ['id', 'name', 'email', 'nim', 'username', 'role', 'status', 'created_at'],
-            'searchable' => ['name', 'email', 'nim', 'username'],
-            'editable'   => ['name', 'username', 'nim', 'email', 'phone', 'role', 'status', 'password', 'profile_photo', 'suspend_reason'],
+            'columns'    => ['id', 'name', 'email', 'nim', 'role', 'status', 'created_at'],
+            'searchable' => ['name', 'email', 'nim'],
+            'editable'   => ['name', 'nim', 'email', 'phone', 'role', 'status', 'password', 'profile_photo', 'suspend_reason'],
             'image_fields' => [
                 'profile_photo' => 'profile-photos',
             ],
@@ -60,10 +63,9 @@ class DataManagerController extends Controller
                 'name'           => 'required|string|max:100',
                 'email'          => 'required|email|unique:users,email',
                 'nim'            => 'nullable|string|max:20|unique:users,nim',
-                'username'       => 'nullable|string|max:50|unique:users,username',
                 'password'       => 'required|string|min:8',
                 'phone'          => 'nullable|string|max:30',
-                'role'           => 'required|in:user,moderator,admin',
+                'role'           => 'required|in:user,admin',
                 'status'         => 'required|in:active,monitored,suspended',
                 'profile_photo'  => 'nullable',
                 'suspend_reason' => 'nullable|string|max:255',
@@ -72,10 +74,9 @@ class DataManagerController extends Controller
                 'name'           => 'required|string|max:100',
                 'email'          => 'required|email',
                 'nim'            => 'nullable|string|max:20',
-                'username'       => 'nullable|string|max:50',
                 'password'       => 'nullable|string|min:8',
                 'phone'          => 'nullable|string|max:30',
-                'role'           => 'required|in:user,moderator,admin',
+                'role'           => 'required|in:user,admin',
                 'status'         => 'required|in:active,monitored,suspended',
                 'profile_photo'  => 'nullable',
                 'suspend_reason' => 'nullable|string|max:255',
@@ -106,10 +107,10 @@ class DataManagerController extends Controller
             'model'      => Product::class,
             'label'      => 'Barang',
             'icon'       => '📦',
-            'columns'    => ['id', 'name', 'price', 'stock', 'status', 'verification_status', 'seller_id', 'category_id', 'created_at'],
+            'columns'    => ['id', 'name', 'price', 'status', 'verification_status', 'seller_id', 'category_id', 'created_at'],
             'searchable' => ['name', 'description'],
             'editable'   => [
-                'seller_id', 'category_id', 'name', 'price', 'stock', 'condition',
+                'seller_id', 'category_id', 'name', 'price', 'condition',
                 'status', 'verification_status', 'verified_by', 'expires_at', 'description',
                 'specification', 'completeness', 'sell_reason', 'rejection_note', 'scan_result', 'scan_note'
             ],
@@ -118,9 +119,8 @@ class DataManagerController extends Controller
                 'category_id'         => 'required|exists:categories,id',
                 'name'                => 'required|string|max:150',
                 'price'               => 'required|numeric|min:0',
-                'stock'               => 'required|integer|min:0',
                 'condition'           => 'nullable|string|max:50',
-                'status'              => 'required|in:available,sold,hidden,archived',
+                'status'              => 'required|in:available,reserved,sold,hidden,archived',
                 'verification_status' => 'required|in:pending,verified,rejected',
                 'verified_by'         => 'nullable|exists:users,id',
                 'expires_at'          => 'nullable|date',
@@ -137,9 +137,8 @@ class DataManagerController extends Controller
                 'category_id'         => 'required|exists:categories,id',
                 'name'                => 'required|string|max:150',
                 'price'               => 'required|numeric|min:0',
-                'stock'               => 'required|integer|min:0',
                 'condition'           => 'nullable|string|max:50',
-                'status'              => 'required|in:available,sold,hidden,archived',
+                'status'              => 'required|in:available,reserved,sold,hidden,archived',
                 'verification_status' => 'required|in:pending,verified,rejected',
                 'verified_by'         => 'nullable|exists:users,id',
                 'expires_at'          => 'nullable|date',
@@ -282,9 +281,9 @@ class DataManagerController extends Controller
                 'buyer_id'            => 'required|exists:users,id|different:seller_id',
                 'seller_id'           => 'required|exists:users,id|different:buyer_id',
                 'quantity'            => 'required|integer|min:1',
-                'agreed_price'        => 'required|numeric|min:0',
+                'agreed_price'        => 'nullable|numeric|min:0',
                 'payment_method'      => 'nullable|string|max:50',
-                'status'              => 'required|in:agreed,completed,cancelled',
+                'status'              => 'required|in:negotiating,agreed,completed,cancelled',
                 'accepted_message_id' => 'nullable|exists:messages,id',
                 'agreed_at'           => 'nullable|date',
                 'completed_at'        => 'nullable|date',
@@ -299,9 +298,9 @@ class DataManagerController extends Controller
                 'buyer_id'            => 'required|exists:users,id|different:seller_id',
                 'seller_id'           => 'required|exists:users,id|different:buyer_id',
                 'quantity'            => 'required|integer|min:1',
-                'agreed_price'        => 'required|numeric|min:0',
+                'agreed_price'        => 'nullable|numeric|min:0',
                 'payment_method'      => 'nullable|string|max:50',
-                'status'              => 'required|in:agreed,completed,cancelled',
+                'status'              => 'required|in:negotiating,agreed,completed,cancelled',
                 'accepted_message_id' => 'nullable|exists:messages,id',
                 'agreed_at'           => 'nullable|date',
                 'completed_at'        => 'nullable|date',
@@ -527,7 +526,7 @@ class DataManagerController extends Controller
             $query->orderBy($pk, 'desc');
         }
 
-        $records = $query->paginate(20)->withQueryString();
+        $records = $query->paginate(10)->withQueryString();
 
         // Ambil daftar kolom dari DB schema untuk form (semua kolom)
         $allColumns = Schema::getColumnListing((new $modelClass)->getTable());
@@ -669,7 +668,7 @@ class DataManagerController extends Controller
                     'data_manager',
                     "Tambah data ke {$table}",
                     $this->getRecordIdentifier($record, $config),
-                    'Mode maintenance — Data Manager',
+                    'Data Manager oleh admin',
                     ['data' => $this->sanitizeForLog($data)]
                 );
             });
@@ -698,7 +697,6 @@ class DataManagerController extends Controller
         if ($table === 'users') {
             $rules['email']    = "required|email|unique:users,email,{$id}";
             $rules['nim']      = "nullable|string|max:20|unique:users,nim,{$id}";
-            $rules['username'] = "nullable|string|max:50|unique:users,username,{$id}";
         }
         if ($table === 'categories') {
             $rules['slug'] = "required|string|max:100|unique:categories,slug,{$id}";
@@ -800,7 +798,7 @@ class DataManagerController extends Controller
                     'data_manager',
                     "Ubah data di {$table}",
                     $this->getRecordIdentifier($record, $config),
-                    'Mode maintenance — Data Manager',
+                    'Data Manager oleh admin',
                     ['old' => $this->sanitizeForLog($old), 'new' => $this->sanitizeForLog($data)]
                 );
             });
@@ -931,14 +929,12 @@ class DataManagerController extends Controller
             'name'                => 'Nama',
             'email'               => 'Email',
             'nim'                 => 'NIM',
-            'username'            => 'Username',
             'password'            => 'Kata Sandi',
             'phone'               => 'Nomor Telepon',
             'role'                => 'Peran Pengguna',
             'status'              => 'Status',
             'verification_status' => 'Status Verifikasi',
             'price'               => 'Harga',
-            'stock'               => 'Stok',
             'rating'              => 'Rating',
             'quantity'            => 'Jumlah Kuantitas',
             'agreed_price'        => 'Harga Disepakati',
@@ -1023,7 +1019,7 @@ class DataManagerController extends Controller
                     'data_manager',
                     "Hapus data dari {$table}",
                     $this->getRecordIdentifier($record, $config),
-                    'Mode maintenance — Data Manager',
+                    'Data Manager oleh admin',
                     ['deleted' => $this->sanitizeForLog($snapshot)]
                 );
             });

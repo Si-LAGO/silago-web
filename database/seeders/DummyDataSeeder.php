@@ -22,7 +22,6 @@ class DummyDataSeeder extends Seeder
         for ($i = 1; $i <= 5; $i++) {
             $sellers[] = User::create([
                 'name' => "Penjual $i",
-                'username' => "seller$i",
                 'nim' => '12345' . $i,
                 'email' => "seller$i@polines.ac.id",
                 'password' => bcrypt('password'),
@@ -37,7 +36,6 @@ class DummyDataSeeder extends Seeder
         for ($i = 1; $i <= 5; $i++) {
             $buyers[] = User::create([
                 'name' => "Pembeli $i",
-                'username' => "buyer$i",
                 'nim' => '54321' . $i,
                 'email' => "buyer$i@polines.ac.id",
                 'password' => bcrypt('password'),
@@ -87,7 +85,6 @@ class DummyDataSeeder extends Seeder
                 'completeness' => $i % 2 === 0 ? 'lengkap' : 'tidak lengkap',
                 'sell_reason' => 'Tidak dipakai lagi',
                 'price' => 50000 + ($i * 10000),
-                'stock' => rand(0, 5),
                 'status' => $status,
                 'verification_status' => $verification,
                 'verified_by' => $verification === 'verified' ? 1 : null,
@@ -146,7 +143,7 @@ class DummyDataSeeder extends Seeder
             }
 
             $lastMessage = $conv->messages()->latest()->first();
-            $status = ['active', 'completed', 'cancelled'][rand(0, 2)];
+            $status = ['negotiating', 'agreed', 'completed', 'cancelled'][rand(0, 3)];
             
             // Distribute deals over last 7 days
             $daysAgo = rand(0, 6);

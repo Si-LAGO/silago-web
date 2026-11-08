@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -13,11 +14,13 @@ class Conversation extends Model
         'product_id',
         'buyer_id',
         'seller_id',
+        'type',
     ];
 
     public function product(): BelongsTo
     {
-        return $this->belongsTo(Product::class);
+        // Riwayat chat tetap bisa menampilkan produk yang sudah dihapus.
+        return $this->belongsTo(Product::class)->withTrashed();
     }
 
     public function buyer(): BelongsTo
@@ -35,6 +38,11 @@ class Conversation extends Model
         return $this->hasMany(Message::class);
     }
 
+    public function lastMessage()
+    {
+        return $this->hasOne(Message::class)->latestOfMany();
+    }
+
     public function marketplaceDeals(): HasMany
     {
         return $this->hasMany(MarketplaceDeal::class);
@@ -47,14 +55,9 @@ class Conversation extends Model
 
     public function latestOffer(): HasOne
     {
-        return $this->hasOne(Message::class)->ofMany(
-            ['id' => 'max'],
-            fn ($query) => $query->where('type', 'offer'),
-        );
-    }
-
-    public function lastMessage(): HasOne
-    {
-        return $this->hasOne(Message::class)->latestOfMany();
+        return $this->hasOne(Message::class)
+            ->ofMany(['id' => 'max'], function (Builder $query) {
+                $query->where('type', 'offer');
+            });
     }
 }

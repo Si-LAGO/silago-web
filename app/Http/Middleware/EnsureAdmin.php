@@ -7,7 +7,7 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Memastikan pengguna yang mengakses adalah staf (moderator atau admin).
+ * Memastikan pengguna yang mengakses adalah admin.
  * Dipakai untuk semua route panel admin.
  */
 class EnsureAdmin
@@ -16,7 +16,7 @@ class EnsureAdmin
     {
         $user = $request->user();
 
-        if (! $user || ! in_array($user->role, ['moderator', 'admin'], true)) {
+        if (! $user || $user->role !== 'admin') {
             if ($request->expectsJson()) {
                 return response()->json(['message' => 'Akses tidak diizinkan.'], 403);
             }
